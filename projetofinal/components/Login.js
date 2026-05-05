@@ -17,29 +17,26 @@ class LoginInvestidor extends React.Component {
       return;
     }
 
-    // Busca na coleção "usuarios" onde o campo "email" seja igual ao digitado
     firebase.database().ref("usuarios")
       .orderByChild("email")
-      .equalTo(this.emailDigitado)
+      .equalTo(this.emailDigitado.trim().toLowerCase())
       .once('value', snapshot => {
-        
         let data = snapshot.val();
-        this.props.setLogado(true);
 
         if (data == null) {
           Alert.alert("Acesso Negado", "Usuário não encontrado.");
         } else {
-          // O Firebase retorna um objeto, pegamos os dados do primeiro usuário encontrado
           let chaves = Object.keys(data);
-          let usuarioLogado = data[chaves[0]];
+          let uid = chaves[0];
+          let usuarioLogado = { uid, ...data[uid] };
 
           Alert.alert(
-            "Bem-vindo!", 
-            `Olá ${usuarioLogado.nome}!\nSaldo disponível: R$ ${usuarioLogado.saldo.toFixed(2)}`
+            "Bem-vindo!",
+            `Olá ${usuarioLogado.nome}!\nSaldo disponível: R$ ${parseFloat(usuarioLogado.saldo).toFixed(2)}`
           );
-          
-          // Aqui você poderia navegar para a Dashboard de Ações:
-          // this.props.navigation.navigate('Dashboard', { user: usuarioLogado });
+
+          // Passa o objeto completo do usuário (com uid) para o App
+          this.props.onLogin(usuarioLogado);
         }
       });
   }
@@ -50,16 +47,16 @@ class LoginInvestidor extends React.Component {
         <Text style={estilos.logo}>StockApp 📈</Text>
         <Text style={estilos.subtitulo}>Acesse sua conta de investidor</Text>
 
-        <TextInput 
-          style={estilos.input} 
+        <TextInput
+          style={estilos.input}
           placeholder="Digite seu e-mail cadastrado"
           keyboardType="email-address"
           autoCapitalize="none"
           onChangeText={(texto) => { this.emailDigitado = texto }}
         />
 
-        <TouchableHighlight 
-          style={estilos.botao} 
+        <TouchableHighlight
+          style={estilos.botao}
           onPress={() => this.fazerLogin()}
           underlayColor="#00ced1"
         >

@@ -11,7 +11,7 @@ class ComprarAcoes extends React.Component {
     this.state = {
       quantidade: '',
       carregando: false,
-      saldoDisponivel: 10000.00,
+      saldoDisponivel: props.usuario?.saldo || 10000.00,
     };
   }
 
@@ -46,7 +46,16 @@ class ComprarAcoes extends React.Component {
   }
 
   executarCompra(qtd, total, acao) {
+    const { usuario } = this.props;
+    if (!usuario?.uid) {
+      Alert.alert('Erro', 'Usuário não identificado. Faça login novamente.');
+      return;
+    }
+
     this.setState({ carregando: true });
+
+    const uid = usuario.uid;
+    const novoSaldo = this.state.saldoDisponivel - total;
 
     const transacao = {
       tipo: 'COMPRA',
@@ -58,10 +67,11 @@ class ComprarAcoes extends React.Component {
       data: new Date().toISOString(),
     };
 
-    firebase.database().ref('transacoes').push(transacao)
+    // Salva transação e atualiza carteira DENTRO do nó do usuário
+    firebase.database().ref(`usuarios/${uid}/transacoes`).push(transacao)
       .then(() => {
         return firebase.database()
-          .ref('carteira')
+          .ref(`usuarios/${uid}/carteira`)
           .orderByChild('ticker')
           .equalTo(acao.ticker)
           .once('value');
@@ -73,12 +83,12 @@ class ComprarAcoes extends React.Component {
           const novaQtd = existente.quantidade + qtd;
           const novoPrecoMedio =
             ((existente.precoMedio * existente.quantidade) + (parseFloat(acao.preco) * qtd)) / novaQtd;
-          return firebase.database().ref(`carteira/${chave}`).update({
+          return firebase.database().ref(`usuarios/${uid}/carteira/${chave}`).update({
             quantidade: novaQtd,
             precoMedio: parseFloat(novoPrecoMedio.toFixed(2)),
           });
         } else {
-          return firebase.database().ref('carteira').push({
+          return firebase.database().ref(`usuarios/${uid}/carteira`).push({
             ticker: acao.ticker,
             nomeEmpresa: acao.nome,
             quantidade: qtd,
@@ -87,10 +97,14 @@ class ComprarAcoes extends React.Component {
         }
       })
       .then(() => {
-        this.setState({ carregando: false, quantidade: '' });
+        // Atualiza saldo do usuário no Firebase
+        return firebase.database().ref(`usuarios/${uid}`).update({ saldo: novoSaldo });
+      })
+      .then(() => {
+        this.setState({ carregando: false, quantidade: '', saldoDisponivel: novoSaldo });
         Alert.alert(
           '🎉 Compra realizada!',
-          `Você comprou ${qtd} cotas de ${acao.ticker} por R$ ${total.toFixed(2)}`,
+          `Você comprou ${qtd} cotas de ${acao.ticker} por R$ ${total.toFixed(2)}\nSaldo restante: R$ ${novoSaldo.toFixed(2)}`,
           [
             { text: 'Ver Carteira', onPress: () => this.props.onVerCarteira() },
             { text: 'OK' }

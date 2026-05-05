@@ -8,13 +8,20 @@ import Tela1 from './components/Tela1';
 import GraficoAcao from './components/GraficoAcao';
 import ComprarAcoes from './components/ComprarAcoes';
 import MinhaCarteira from './components/MinhaCarteira';
+import HistoricoTransacoes from './components/HistoricoTransacoes';
 
 const Tab = createBottomTabNavigator();
 
 export default function App() {
   const [logado, setLogado] = React.useState(false);
-  const [telaAtual, setTelaAtual] = React.useState('mercado'); // 'mercado' | 'grafico' | 'comprar'
+  const [usuarioLogado, setUsuarioLogado] = React.useState(null);
+  const [telaAtual, setTelaAtual] = React.useState('mercado');
   const [acaoSelecionada, setAcaoSelecionada] = React.useState(null);
+
+  function handleLogin(usuario) {
+    setUsuarioLogado(usuario);
+    setLogado(true);
+  }
 
   function irParaGrafico(acao) {
     setAcaoSelecionada(acao);
@@ -49,12 +56,13 @@ export default function App() {
       return (
         <ComprarAcoes
           acao={acaoSelecionada}
+          usuario={usuarioLogado}
           onVoltar={voltarParaGrafico}
           onVerCarteira={() => setTelaAtual('mercado')}
         />
       );
     }
-    return <Tela1 onVerGrafico={irParaGrafico} />;
+    return <Tela1 onVerGrafico={irParaGrafico} usuario={usuarioLogado} />;
   }
 
   function TabsLogado() {
@@ -75,9 +83,16 @@ export default function App() {
         </Tab.Screen>
         <Tab.Screen
           name="MinhaCarteira"
-          component={MinhaCarteira}
           options={{ tabBarLabel: '💼 Carteira' }}
-        />
+        >
+          {() => <MinhaCarteira usuario={usuarioLogado} />}
+        </Tab.Screen>
+        <Tab.Screen
+          name="Historico"
+          options={{ tabBarLabel: '📋 Histórico' }}
+        >
+          {() => <HistoricoTransacoes usuario={usuarioLogado} />}
+        </Tab.Screen>
       </Tab.Navigator>
     );
   }
@@ -89,10 +104,10 @@ export default function App() {
       ) : (
         <Tab.Navigator screenOptions={{ tabBarActiveTintColor: '#008b8b' }}>
           <Tab.Screen name="Entrar">
-            {(props) => <Login {...props} setLogado={setLogado} />}
+            {(props) => <Login {...props} onLogin={handleLogin} />}
           </Tab.Screen>
           <Tab.Screen name="Cadastrar">
-            {(props) => <Cadastrar {...props} setLogado={setLogado} />}
+            {(props) => <Cadastrar {...props} onLogin={handleLogin} />}
           </Tab.Screen>
         </Tab.Navigator>
       )}

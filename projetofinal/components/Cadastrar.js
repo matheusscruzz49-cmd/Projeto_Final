@@ -11,18 +11,26 @@ class CadastroInvestidor extends React.Component {
 
   cadastrar() {
     if (this.nome.trim() !== "" && this.email.trim() !== "") {
-      firebase.database().ref("usuarios").push({
-        nome: this.nome,
-        email: this.email,
-        saldo: 10000.00, 
+      const novoUsuario = {
+        nome: this.nome.trim(),
+        email: this.email.trim().toLowerCase(),
+        saldo: 10000.00,
         dataCadastro: new Date().toISOString()
-      })
-      .then(() => {
-        Alert.alert("Sucesso", "Conta de investidor criada!");
-      })
-      .catch((error) => {
-        Alert.alert("Erro", "Falha ao cadastrar: " + error.message);
-      });
+      };
+
+      firebase.database().ref("usuarios").push(novoUsuario)
+        .then((ref) => {
+          const uid = ref.key;
+          const usuarioLogado = { uid, ...novoUsuario };
+          Alert.alert(
+            "Conta criada! 🎉",
+            `Bem-vindo, ${novoUsuario.nome}!\nSaldo inicial: R$ 10.000,00`,
+            [{ text: 'Começar a investir', onPress: () => this.props.onLogin(usuarioLogado) }]
+          );
+        })
+        .catch((error) => {
+          Alert.alert("Erro", "Falha ao cadastrar: " + error.message);
+        });
     } else {
       Alert.alert("Atenção", "Preencha todos os campos para continuar.");
     }
@@ -34,15 +42,15 @@ class CadastroInvestidor extends React.Component {
         <Text style={estilos.logo}>StockApp 📈</Text>
         <Text style={estilos.subtitulo}>Crie sua conta para começar a investir</Text>
 
-        <TextInput 
-          style={estilos.input} 
+        <TextInput
+          style={estilos.input}
           placeholder="Nome Completo"
           placeholderTextColor="#999"
           onChangeText={(texto) => { this.nome = texto }}
         />
 
-        <TextInput 
-          style={estilos.input} 
+        <TextInput
+          style={estilos.input}
           placeholder="E-mail"
           placeholderTextColor="#999"
           keyboardType="email-address"
@@ -50,8 +58,8 @@ class CadastroInvestidor extends React.Component {
           onChangeText={(texto) => { this.email = texto }}
         />
 
-        <TouchableHighlight 
-          style={estilos.botao} 
+        <TouchableHighlight
+          style={estilos.botao}
           onPress={() => this.cadastrar()}
           underlayColor="#00ced1"
         >
@@ -75,7 +83,7 @@ const estilos = StyleSheet.create({
     fontSize: 40,
     fontWeight: 'bold',
     textAlign: 'center',
-    color: '#008b8b' // Mesmo tom de verde/azul do Login
+    color: '#008b8b'
   },
   subtitulo: {
     fontSize: 16,
@@ -95,11 +103,9 @@ const estilos = StyleSheet.create({
     justifyContent: 'center',
     borderRadius: 10,
     marginTop: 10,
-    // Sombra para iOS
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.25,
-    // Sombra para Android
     elevation: 5,
   },
   input: {
@@ -110,7 +116,7 @@ const estilos = StyleSheet.create({
     borderWidth: 1,
     marginBottom: 15,
     borderRadius: 10,
-    backgroundColor: '#f9f9f9', // Fundo leve igual ao Login
+    backgroundColor: '#f9f9f9',
     color: '#333'
   },
   voltarLogin: {

@@ -1,6 +1,7 @@
 import * as React from 'react';
 import { View, Text, StyleSheet, FlatList, TouchableOpacity, ActivityIndicator } from 'react-native';
 import firebase from '../config/config';
+import VenderAcoes from './VenderAcoes';
 
 const PRECOS_ATUAIS = {
   PETR4: 35.42, VALE3: 68.90, ITUB4: 32.15,
@@ -11,24 +12,39 @@ const PRECOS_ATUAIS = {
 class MinhaCarteira extends React.Component {
   constructor(props) {
     super(props);
-    this.state = { carteira: [], carregando: true };
+    this.state = {
+      carteira: [],
+      carregando: true,
+      saldoAtual: props.usuario?.saldo || 0,
+      itemVendendo: null, // ação selecionada para vender
+    };
   }
 
   componentDidMount() {
     this.carregarCarteira();
-    this.props.navigation.addListener('focus', () => this.carregarCarteira());
   }
 
   carregarCarteira() {
+    const { usuario } = this.props;
+    if (!usuario?.uid) {
+      this.setState({ carregando: false });
+      return;
+    }
+
     this.setState({ carregando: true });
-    firebase.database().ref('carteira').once('value', snapshot => {
-      const data = snapshot.val();
-      if (data) {
-        const lista = Object.keys(data).map(key => ({ uid: key, ...data[key] }));
-        this.setState({ carteira: lista, carregando: false });
-      } else {
-        this.setState({ carteira: [], carregando: false });
-      }
+    const uid = usuario.uid;
+
+    // Lê carteira e saldo do usuário em paralelo
+    Promise.all([
+      firebase.database().ref(`usuarios/${uid}/carteira`).once('value'),
+      firebase.database().ref(`usuarios/${uid}/saldo`).once('value'),
+    ]).then(([carteiraSnap, saldoSnap]) => {
+      const data = carteiraSnap.val();
+      const saldo = saldoSnap.val() || 0;
+      const lista = data ? Object.keys(data).map(key => ({ uid: key, ...data[key] })) : [];
+      this.setState({ carteira: lista, saldoAtual: saldo, carregando: false });
+    }).catch(() => {
+      this.setState({ carregando: false });
     });
   }
 
@@ -48,10 +64,39 @@ class MinhaCarteira extends React.Component {
     return { totalInvestido, valorAtual, lucroPerda, percentual };
   }
 
+  abrirVenda(item) {
+    this.setState({ itemVendendo: item });
+  }
+
+  fecharVenda() {
+    this.setState({ itemVendendo: null });
+  }
+
+  onVendaRealizada(novoSaldo) {
+    this.setState({ itemVendendo: null, saldoAtual: novoSaldo });
+    this.carregarCarteira();
+  }
+
   render() {
-    const { carregando, carteira } = this.state;
+    const { carregando, carteira, itemVendendo, saldoAtual } = this.state;
+    const { usuario } = this.props;
     const resumo = this.calcularResumo();
     const positivo = resumo.lucroPerda >= 0;
+
+    // Tela de venda
+    if (itemVendendo) {
+      const precoAtual = PRECOS_ATUAIS[itemVendendo.ticker] || itemVendendo.precoMedio;
+      return (
+        <VenderAcoes
+          item={itemVendendo}
+          precoAtual={precoAtual}
+          usuario={usuario}
+          saldoAtual={saldoAtual}
+          onFechar={() => this.fecharVenda()}
+          onVendaRealizada={(novoSaldo) => this.onVendaRealizada(novoSaldo)}
+        />
+      );
+    }
 
     if (carregando) {
       return (
@@ -64,9 +109,10 @@ class MinhaCarteira extends React.Component {
 
     return (
       <View style={estilos.container}>
-        {/* Resumo financeiro */}
         <View style={estilos.header}>
           <Text style={estilos.headerTitulo}>Minha Carteira</Text>
+          <Text style={estilos.saldoLabel}>Saldo disponível</Text>
+          <Text style={estilos.saldoValor}>R$ {parseFloat(saldoAtual).toFixed(2)}</Text>
           <View style={estilos.resumoRow}>
             <View style={estilos.resumoItem}>
               <Text style={estilos.resumoLabel}>Valor Investido</Text>
@@ -77,11 +123,13 @@ class MinhaCarteira extends React.Component {
               <Text style={estilos.resumoValor}>R$ {resumo.valorAtual.toFixed(2)}</Text>
             </View>
           </View>
-          <View style={[estilos.lucroBox, { backgroundColor: positivo ? 'rgba(0,184,148,0.15)' : 'rgba(214,48,49,0.15)' }]}>
-            <Text style={[estilos.lucroTxt, { color: positivo ? '#00b894' : '#d63031' }]}>
-              {positivo ? '▲ Lucro' : '▼ Prejuízo'}: R$ {Math.abs(resumo.lucroPerda).toFixed(2)} ({Math.abs(resumo.percentual).toFixed(2)}%)
-            </Text>
-          </View>
+          {resumo.totalInvestido > 0 && (
+            <View style={[estilos.lucroBox, { backgroundColor: positivo ? 'rgba(0,184,148,0.15)' : 'rgba(214,48,49,0.15)' }]}>
+              <Text style={[estilos.lucroTxt, { color: positivo ? '#00b894' : '#d63031' }]}>
+                {positivo ? '▲ Lucro' : '▼ Prejuízo'}: R$ {Math.abs(resumo.lucroPerda).toFixed(2)} ({Math.abs(resumo.percentual).toFixed(2)}%)
+              </Text>
+            </View>
+          )}
         </View>
 
         {carteira.length === 0 ? (
@@ -89,18 +137,13 @@ class MinhaCarteira extends React.Component {
             <Text style={estilos.vazioEmoji}>📭</Text>
             <Text style={estilos.vazioTitulo}>Carteira vazia</Text>
             <Text style={estilos.vazioSub}>Você ainda não comprou nenhuma ação.</Text>
-            <TouchableOpacity
-              style={estilos.botaoIr}
-              onPress={() => this.props.navigation.navigate('Tela1')}
-            >
-              <Text style={estilos.txtBotaoIr}>Ver ações disponíveis →</Text>
-            </TouchableOpacity>
           </View>
         ) : (
           <FlatList
             data={carteira}
             keyExtractor={item => item.uid}
             showsVerticalScrollIndicator={false}
+            contentContainerStyle={{ paddingBottom: 20 }}
             renderItem={({ item }) => {
               const precoAtual = PRECOS_ATUAIS[item.ticker] || item.precoMedio;
               const valorTotal = precoAtual * item.quantidade;
@@ -123,6 +166,7 @@ class MinhaCarteira extends React.Component {
                       </Text>
                     </View>
                   </View>
+
                   <View style={estilos.cardRodape}>
                     <View style={estilos.infoItem}>
                       <Text style={estilos.infoLabel}>Cotas</Text>
@@ -141,6 +185,13 @@ class MinhaCarteira extends React.Component {
                       <Text style={[estilos.infoValor, { color: '#008b8b', fontWeight: 'bold' }]}>R$ {valorTotal.toFixed(2)}</Text>
                     </View>
                   </View>
+
+                  <TouchableOpacity
+                    style={estilos.botaoVender}
+                    onPress={() => this.abrirVenda(item)}
+                  >
+                    <Text style={estilos.txtBotaoVender}>💵 Vender</Text>
+                  </TouchableOpacity>
                 </View>
               );
             }}
@@ -160,7 +211,9 @@ const estilos = StyleSheet.create({
     paddingHorizontal: 20, borderBottomLeftRadius: 24, borderBottomRightRadius: 24,
     marginBottom: 12,
   },
-  headerTitulo: { color: '#fff', fontSize: 20, fontWeight: 'bold', textAlign: 'center', marginBottom: 16 },
+  headerTitulo: { color: '#fff', fontSize: 20, fontWeight: 'bold', textAlign: 'center', marginBottom: 6 },
+  saldoLabel: { color: '#b2dfdf', fontSize: 12, textAlign: 'center' },
+  saldoValor: { color: '#fff', fontSize: 22, fontWeight: 'bold', textAlign: 'center', marginBottom: 14 },
   resumoRow: { flexDirection: 'row', justifyContent: 'space-between' },
   resumoItem: { flex: 1, alignItems: 'center' },
   resumoLabel: { color: '#b2dfdf', fontSize: 12 },
@@ -171,8 +224,6 @@ const estilos = StyleSheet.create({
   vazioEmoji: { fontSize: 60, marginBottom: 12 },
   vazioTitulo: { fontSize: 20, fontWeight: 'bold', color: '#333', marginBottom: 6 },
   vazioSub: { color: '#888', textAlign: 'center', marginBottom: 20 },
-  botaoIr: { backgroundColor: '#008b8b', paddingVertical: 12, paddingHorizontal: 24, borderRadius: 10 },
-  txtBotaoIr: { color: '#fff', fontWeight: 'bold', fontSize: 15 },
   card: {
     backgroundColor: '#fff', marginHorizontal: 15, marginBottom: 10,
     borderRadius: 14, elevation: 2, overflow: 'hidden',
@@ -194,6 +245,11 @@ const estilos = StyleSheet.create({
   infoItem: { flex: 1, alignItems: 'center' },
   infoLabel: { fontSize: 10, color: '#aaa', marginBottom: 2 },
   infoValor: { fontSize: 12, fontWeight: '600', color: '#444' },
+  botaoVender: {
+    backgroundColor: '#d63031', margin: 10, borderRadius: 10,
+    paddingVertical: 10, alignItems: 'center',
+  },
+  txtBotaoVender: { color: '#fff', fontWeight: 'bold', fontSize: 14 },
 });
 
 export default MinhaCarteira;
