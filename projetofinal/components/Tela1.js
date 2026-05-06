@@ -3,6 +3,7 @@ import {
   View, Text, StyleSheet, FlatList,
   TouchableOpacity, ActivityIndicator, RefreshControl, Image
 } from 'react-native';
+import firebase from '../config/config';
 
 const ACOES_BASE = [
   { id: '1', ticker: 'PETR4', nome: 'Petrobras', precoBase: 35.42, setor: 'Energia',
@@ -44,16 +45,28 @@ class Tela1 extends React.Component {
       carregando: true,
       atualizando: false,
       ultimaAtualizacao: null,
+      saldoAtual: props.usuario?.saldo || 10000, // saldo no state
     };
+    this.saldoRef = null;
   }
 
   componentDidMount() {
     this.carregarMercado();
     this.intervalo = setInterval(() => this.carregarMercado(true), 30000);
+
+    // Listener em tempo real do saldo no Firebase
+    const { usuario } = this.props;
+    if (usuario?.uid) {
+      this.saldoRef = firebase.database().ref(`usuarios/${usuario.uid}/saldo`);
+      this.saldoRef.on('value', snapshot => {
+        this.setState({ saldoAtual: snapshot.val() || 0 });
+      });
+    }
   }
 
   componentWillUnmount() {
     if (this.intervalo) clearInterval(this.intervalo);
+    if (this.saldoRef) this.saldoRef.off(); // cancela listener
   }
 
   carregarMercado(silencioso = false) {
@@ -69,8 +82,8 @@ class Tela1 extends React.Component {
   }
 
   render() {
-    const { acoes, carregando, atualizando, ultimaAtualizacao } = this.state;
-    const { onVerGrafico, usuario } = this.props;
+    const { acoes, carregando, atualizando, ultimaAtualizacao, saldoAtual } = this.state;
+    const { onVerGrafico } = this.props;
     const maioresAltas = [...acoes].sort((a, b) => b.variacaoNum - a.variacaoNum).slice(0, 3);
     const maioresBaixas = [...acoes].sort((a, b) => a.variacaoNum - b.variacaoNum).slice(0, 3);
 
@@ -92,7 +105,7 @@ class Tela1 extends React.Component {
           </View>
           <Text style={estilos.saldoLabel}>Seu Saldo Disponível</Text>
           <Text style={estilos.saldoValor}>
-            R$ {usuario?.saldo ? parseFloat(usuario.saldo).toFixed(2) : '10.000,00'}
+            R$ {parseFloat(saldoAtual).toFixed(2)}
           </Text>
           {ultimaAtualizacao && (
             <Text style={estilos.ultimaAtt}>Atualizado às {ultimaAtualizacao}</Text>
@@ -151,7 +164,6 @@ class Tela1 extends React.Component {
                       <Image
                         source={{ uri: item.logo }}
                         style={estilos.logoImg}
-                        defaultSource={{ uri: `https://ui-avatars.com/api/?name=${item.ticker}&background=e0f4f4&color=008b8b&bold=true` }}
                       />
                     </View>
                     <View>
@@ -217,7 +229,6 @@ const estilos = StyleSheet.create({
   cardEsquerda: { flexDirection: 'row', alignItems: 'center', gap: 12 },
   avatar: { width: 44, height: 44, borderRadius: 22, justifyContent: 'center', alignItems: 'center' },
   logoImg: { width: 32, height: 32, borderRadius: 16, resizeMode: 'contain' },
-  avatarLetra: { fontWeight: 'bold', fontSize: 18 },
   ticker: { fontSize: 16, fontWeight: 'bold', color: '#333' },
   nomeEmpresa: { fontSize: 12, color: '#999' },
   setor: { fontSize: 10, color: '#bbb', marginTop: 1 },

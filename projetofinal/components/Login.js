@@ -1,69 +1,103 @@
 import * as React from 'react';
-import { TextInput, Text, View, StyleSheet, TouchableHighlight, Alert } from 'react-native';
+import { TextInput, Text, View, StyleSheet, TouchableOpacity, Alert, ActivityIndicator } from 'react-native';
 import firebase from '../config/config';
 
 class LoginInvestidor extends React.Component {
   constructor(props) {
     super(props);
-    this.emailDigitado = "";
     this.state = {
-      carregando: false
+      email: '',
+      senha: '',
+      carregando: false,
     };
   }
 
   fazerLogin() {
-    if (this.emailDigitado.trim() === "") {
-      Alert.alert("Erro", "Por favor, digite seu e-mail.");
+    const { email, senha } = this.state;
+
+    if (email.trim() === '') {
+      Alert.alert('Atenção', 'Por favor, digite seu e-mail.');
+      return;
+    }
+    if (senha.trim() === '') {
+      Alert.alert('Atenção', 'Por favor, digite sua senha.');
       return;
     }
 
-    firebase.database().ref("usuarios")
-      .orderByChild("email")
-      .equalTo(this.emailDigitado.trim().toLowerCase())
+    this.setState({ carregando: true });
+
+    firebase.database().ref('usuarios')
+      .orderByChild('email')
+      .equalTo(email.trim().toLowerCase())
       .once('value', snapshot => {
-        let data = snapshot.val();
+        const data = snapshot.val();
 
         if (data == null) {
-          Alert.alert("Acesso Negado", "Usuário não encontrado.");
-        } else {
-          let chaves = Object.keys(data);
-          let uid = chaves[0];
-          let usuarioLogado = { uid, ...data[uid] };
-
-          Alert.alert(
-            "Bem-vindo!",
-            `Olá ${usuarioLogado.nome}!\nSaldo disponível: R$ ${parseFloat(usuarioLogado.saldo).toFixed(2)}`
-          );
-
-          // Passa o objeto completo do usuário (com uid) para o App
-          this.props.onLogin(usuarioLogado);
+          this.setState({ carregando: false });
+          Alert.alert('Acesso Negado', 'E-mail não encontrado.');
+          return;
         }
+
+        const uid = Object.keys(data)[0];
+        const usuario = { uid, ...data[uid] };
+
+        if (usuario.senha !== senha) {
+          this.setState({ carregando: false });
+          Alert.alert('Acesso Negado', 'Senha incorreta.');
+          return;
+        }
+
+        this.setState({ carregando: false });
+        Alert.alert('Bem-vindo!', `Olá, ${usuario.nome}!\nSaldo disponível: R$ ${parseFloat(usuario.saldo).toFixed(2)}`);
+        this.props.onLogin(usuario);
+      })
+      .catch(error => {
+        this.setState({ carregando: false });
+        Alert.alert('Erro', error.message);
       });
   }
 
   render() {
+    const { email, senha, carregando } = this.state;
+
     return (
       <View style={estilos.container}>
-        <Text style={estilos.logo}>StockApp 📈</Text>
+        <Text style={estilos.logo}>StockApp</Text>
         <Text style={estilos.subtitulo}>Acesse sua conta de investidor</Text>
 
         <TextInput
           style={estilos.input}
-          placeholder="Digite seu e-mail cadastrado"
+          placeholder="E-mail"
+          placeholderTextColor="#999"
           keyboardType="email-address"
           autoCapitalize="none"
-          onChangeText={(texto) => { this.emailDigitado = texto }}
+          value={email}
+          onChangeText={texto => this.setState({ email: texto })}
         />
 
-        <TouchableHighlight
-          style={estilos.botao}
-          onPress={() => this.fazerLogin()}
-          underlayColor="#00ced1"
-        >
-          <Text style={estilos.txtBotao}>Entrar no Home Broker</Text>
-        </TouchableHighlight>
+        <TextInput
+          style={estilos.input}
+          placeholder="Senha"
+          placeholderTextColor="#999"
+          secureTextEntry={true}
+          value={senha}
+          onChangeText={texto => this.setState({ senha: texto })}
+        />
 
-        <Text style={estilos.esqueceuSenha}>Esqueceu suas credenciais?</Text>
+        <TouchableOpacity
+          style={[estilos.botao, carregando && { opacity: 0.7 }]}
+          onPress={() => this.fazerLogin()}
+          disabled={carregando}
+        >
+          {carregando
+            ? <ActivityIndicator color="#fff" />
+            : <Text style={estilos.txtBotao}>Entrar</Text>
+          }
+        </TouchableOpacity>
+
+        <TouchableOpacity onPress={() => this.props.navigation.navigate('Cadastrar')}>
+          <Text style={estilos.linkTexto}>Não tem uma conta? Cadastre-se</Text>
+        </TouchableOpacity>
       </View>
     );
   }
@@ -73,54 +107,54 @@ const estilos = StyleSheet.create({
   container: {
     flex: 1,
     justifyContent: 'center',
-    padding: 20,
-    backgroundColor: '#fff'
+    padding: 24,
+    backgroundColor: '#fff',
   },
   logo: {
     fontSize: 40,
     fontWeight: 'bold',
     textAlign: 'center',
-    color: '#008b8b'
+    color: '#008b8b',
+    marginBottom: 6,
   },
   subtitulo: {
-    fontSize: 16,
+    fontSize: 15,
     textAlign: 'center',
     marginBottom: 40,
-    color: '#666'
+    color: '#666',
   },
-  txtBotao: {
-    color: "white",
-    fontSize: 20,
-    fontWeight: 'bold',
-    alignSelf: "center"
+  input: {
+    height: 55,
+    padding: 15,
+    fontSize: 16,
+    borderColor: '#ddd',
+    borderWidth: 1,
+    marginBottom: 14,
+    borderRadius: 10,
+    backgroundColor: '#f9f9f9',
+    color: '#333',
   },
   botao: {
     height: 55,
-    backgroundColor: "#008b8b",
+    backgroundColor: '#008b8b',
     justifyContent: 'center',
+    alignItems: 'center',
     borderRadius: 10,
-    marginTop: 10,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    elevation: 5,
+    marginTop: 6,
+    elevation: 3,
   },
-  input: {
-    height: 60,
-    padding: 15,
+  txtBotao: {
+    color: '#fff',
     fontSize: 18,
-    borderColor: '#ddd',
-    borderWidth: 1,
-    marginBottom: 15,
-    borderRadius: 10,
-    backgroundColor: '#f9f9f9'
+    fontWeight: 'bold',
   },
-  esqueceuSenha: {
-    marginTop: 20,
+  linkTexto: {
+    marginTop: 22,
     textAlign: 'center',
     color: '#008b8b',
-    textDecorationLine: 'underline'
-  }
+    textDecorationLine: 'underline',
+    fontSize: 14,
+  },
 });
 
 export default LoginInvestidor;
