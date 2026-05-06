@@ -1,18 +1,26 @@
 import * as React from 'react';
 import {
   View, Text, StyleSheet, FlatList,
-  TouchableOpacity, ActivityIndicator, RefreshControl
+  TouchableOpacity, ActivityIndicator, RefreshControl, Image
 } from 'react-native';
 
 const ACOES_BASE = [
-  { id: '1', ticker: 'PETR4', nome: 'Petrobras', precoBase: 35.42, setor: 'Energia' },
-  { id: '2', ticker: 'VALE3', nome: 'Vale On', precoBase: 68.90, setor: 'Mineração' },
-  { id: '3', ticker: 'ITUB4', nome: 'Itaú Unibanco', precoBase: 32.15, setor: 'Bancos' },
-  { id: '4', ticker: 'MGLU3', nome: 'Magazine Luiza', precoBase: 2.45, setor: 'Varejo' },
-  { id: '5', ticker: 'BBAS3', nome: 'Banco do Brasil', precoBase: 55.10, setor: 'Bancos' },
-  { id: '6', ticker: 'WEGE3', nome: 'WEG S.A.', precoBase: 42.70, setor: 'Indústria' },
-  { id: '7', ticker: 'RENT3', nome: 'Localiza', precoBase: 48.60, setor: 'Locação' },
-  { id: '8', ticker: 'ABEV3', nome: 'Ambev', precoBase: 12.30, setor: 'Bebidas' },
+  { id: '1', ticker: 'PETR4', nome: 'Petrobras', precoBase: 35.42, setor: 'Energia',
+    logo: 'https://s3-symbol-logo.tradingview.com/brasileiro-petrobras--600.png' },
+  { id: '2', ticker: 'VALE3', nome: 'Vale On', precoBase: 68.90, setor: 'Mineração',
+    logo: 'https://s3-symbol-logo.tradingview.com/vale--600.png' },
+  { id: '3', ticker: 'ITUB4', nome: 'Itaú Unibanco', precoBase: 32.15, setor: 'Bancos',
+    logo: 'https://tiinside.com.br/wp-content/uploads/2022/08/Itau.png' },
+  { id: '4', ticker: 'MGLU3', nome: 'Magazine Luiza', precoBase: 2.45, setor: 'Varejo',
+    logo: 'https://s3-symbol-logo.tradingview.com/magaz-luiza-on-nm--600.png' },
+  { id: '5', ticker: 'BBAS3', nome: 'Banco do Brasil', precoBase: 55.10, setor: 'Bancos',
+    logo: 'https://blogger.googleusercontent.com/img/b/R29vZ2xl/AVvXsEi4v4sz_PsGCe98ocnEokjkWgfBgThfi70u-36k6j3f81st-IBaIbW2InDiKlugsqyqTxkVApq4dcgSpFXVDrdNsla1jgm7Da8DyEfZjf1JNveDfj4S80-xIiX9Yy2D5Tx5or-Psg/s1600/BB+logo.jpg' },
+  { id: '6', ticker: 'WEGE3', nome: 'WEG S.A.', precoBase: 42.70, setor: 'Indústria',
+    logo: 'https://s3-symbol-logo.tradingview.com/weg--600.png' },
+  { id: '7', ticker: 'RENT3', nome: 'Localiza', precoBase: 48.60, setor: 'Locação',
+    logo: 'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcRt7THTDECE6eaXEFGI7x1zEVSE_GwK7zujug&s' },
+  { id: '8', ticker: 'ABEV3', nome: 'Ambev', precoBase: 12.30, setor: 'Bebidas',
+    logo: 'https://s3-symbol-logo.tradingview.com/ambev--600.png' },
 ];
 
 function gerarMercado() {
@@ -62,7 +70,7 @@ class Tela1 extends React.Component {
 
   render() {
     const { acoes, carregando, atualizando, ultimaAtualizacao } = this.state;
-    const { onVerGrafico } = this.props;
+    const { onVerGrafico, usuario } = this.props;
     const maioresAltas = [...acoes].sort((a, b) => b.variacaoNum - a.variacaoNum).slice(0, 3);
     const maioresBaixas = [...acoes].sort((a, b) => a.variacaoNum - b.variacaoNum).slice(0, 3);
 
@@ -83,7 +91,9 @@ class Tela1 extends React.Component {
             </TouchableOpacity>
           </View>
           <Text style={estilos.saldoLabel}>Seu Saldo Disponível</Text>
-          <Text style={estilos.saldoValor}>R$ 10.000,00</Text>
+          <Text style={estilos.saldoValor}>
+            R$ {usuario?.saldo ? parseFloat(usuario.saldo).toFixed(2) : '10.000,00'}
+          </Text>
           {ultimaAtualizacao && (
             <Text style={estilos.ultimaAtt}>Atualizado às {ultimaAtualizacao}</Text>
           )}
@@ -138,9 +148,11 @@ class Tela1 extends React.Component {
                 <TouchableOpacity style={estilos.cardAcao} onPress={() => onVerGrafico(item)} activeOpacity={0.7}>
                   <View style={estilos.cardEsquerda}>
                     <View style={[estilos.avatar, { backgroundColor: positivo ? '#e0f4f4' : '#fdecea' }]}>
-                      <Text style={[estilos.avatarLetra, { color: positivo ? '#008b8b' : '#d63031' }]}>
-                        {item.ticker[0]}
-                      </Text>
+                      <Image
+                        source={{ uri: item.logo }}
+                        style={estilos.logoImg}
+                        defaultSource={{ uri: `https://ui-avatars.com/api/?name=${item.ticker}&background=e0f4f4&color=008b8b&bold=true` }}
+                      />
                     </View>
                     <View>
                       <Text style={estilos.ticker}>{item.ticker}</Text>
@@ -204,6 +216,7 @@ const estilos = StyleSheet.create({
   },
   cardEsquerda: { flexDirection: 'row', alignItems: 'center', gap: 12 },
   avatar: { width: 44, height: 44, borderRadius: 22, justifyContent: 'center', alignItems: 'center' },
+  logoImg: { width: 32, height: 32, borderRadius: 16, resizeMode: 'contain' },
   avatarLetra: { fontWeight: 'bold', fontSize: 18 },
   ticker: { fontSize: 16, fontWeight: 'bold', color: '#333' },
   nomeEmpresa: { fontSize: 12, color: '#999' },

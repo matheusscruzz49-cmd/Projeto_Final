@@ -1,7 +1,7 @@
 import * as React from 'react';
 import {
   View, Text, StyleSheet, ScrollView,
-  TouchableOpacity, Dimensions, ActivityIndicator
+  TouchableOpacity, Dimensions, ActivityIndicator, Image
 } from 'react-native';
 
 const { width } = Dimensions.get('window');
@@ -207,7 +207,10 @@ class GraficoAcao extends React.Component {
 
           <View style={estilos.acaoInfo}>
             <View style={estilos.avatarGrande}>
-              <Text style={estilos.avatarLetra}>{acao.ticker[0]}</Text>
+              <Image
+                source={{ uri: acao.logo }}
+                style={estilos.logoImg}
+              />
             </View>
             <View>
               <Text style={estilos.tickerGrande}>{acao.ticker}</Text>
@@ -287,10 +290,10 @@ const estilos = StyleSheet.create({
   acaoInfo: { flexDirection: 'row', alignItems: 'center', marginBottom: 12 },
   avatarGrande: {
     width: 52, height: 52, borderRadius: 26,
-    backgroundColor: 'rgba(255,255,255,0.2)',
+    backgroundColor: 'rgba(255,255,255,0.9)',
     justifyContent: 'center', alignItems: 'center', marginRight: 14,
   },
-  avatarLetra: { color: '#fff', fontWeight: 'bold', fontSize: 22 },
+  logoImg: { width: 38, height: 38, borderRadius: 19, resizeMode: 'contain' },
   tickerGrande: { color: '#fff', fontSize: 22, fontWeight: 'bold' },
   nomeEmpresa: { color: '#b2dfdf', fontSize: 13, marginTop: 2 },
   precoGrande: { color: '#fff', fontSize: 36, fontWeight: 'bold', marginTop: 4 },
