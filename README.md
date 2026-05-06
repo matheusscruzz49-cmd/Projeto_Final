@@ -148,4 +148,3 @@ Durante o desenvolvimento do StockSim, foram aplicados na prática conceitos fun
 
 ---
 
-> Este aplicativo é exclusivamente educacional. Nenhuma transação financeira real é realizada.
